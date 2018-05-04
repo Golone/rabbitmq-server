@@ -418,7 +418,7 @@ remove_routes(Routes) ->
     %% operations on disk tables, which require an fsync.
     {RamRoutes, DiskRoutes} =
         lists:partition(fun (R) -> mnesia:match_object(
-                                     rabbit_durable_route, R, write) == [] end,
+                                     rabbit_durable_route, R) == [] end,
                         Routes),
     %% Of course the destination might not really be durable but it's
     %% just as easy to try to delete it from the semi-durable table
@@ -436,18 +436,18 @@ remove_transient_routes(Routes) ->
      end || R <- Routes].
 
 remove_for_destination(DstName, OnlyDurable, Fun) ->
-    lock_route_tables(),
     MatchFwd = #route{binding = #binding{destination = DstName, _ = '_'}},
     MatchRev = reverse_route(MatchFwd),
     Routes = case OnlyDurable of
-                 false -> [reverse_route(R) ||
+                 false ->
+                        [reverse_route(R) ||
                               R <- mnesia:match_object(
-                                     rabbit_reverse_route, MatchRev, write)];
+                                     rabbit_reverse_route, MatchRev)];
                  true  -> lists:usort(
                             mnesia:match_object(
-                              rabbit_durable_route, MatchFwd, write) ++
+                              rabbit_durable_route, MatchFwd) ++
                                 mnesia:match_object(
-                                  rabbit_semi_durable_route, MatchFwd, write))
+                                  rabbit_semi_durable_route, MatchFwd))
              end,
     Bindings = Fun(Routes),
     group_bindings_fold(fun maybe_auto_delete/4, new_deletions(),
